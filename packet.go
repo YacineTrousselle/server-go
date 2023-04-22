@@ -129,7 +129,7 @@ func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) []byte {
 		if packetWrapper.packet.dataType == EndTransfert {
 			break
 		}
-		copy(data[currentSize:currentSize+packetWrapper.packet.dataSize], packetWrapper.packet.data[:packetWrapper.packet.dataSize])
+		copy(data[8+currentSize:8+currentSize+packetWrapper.packet.dataSize], packetWrapper.packet.data[8:packetWrapper.packet.dataSize])
 		currentSize = currentSize + packetWrapper.packet.dataSize
 		packetWrapper.SendDataType(conn, PacketReceived)
 	}
