@@ -58,10 +58,10 @@ func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32, co
 		if startBlock == uint32(len(data)) {
 			break
 		}
-		if startBlock+MaxPacketSize-8 > uint32(len(data)) {
+		if startBlock+packetWrapper.maxSize-8 > uint32(len(data)) {
 			endBlock = uint32(len(data))
 		} else {
-			endBlock = endBlock + MaxPacketSize - 8
+			endBlock = endBlock + packetWrapper.maxSize - 8
 		}
 		packetWrapper.WriteDataInPacket(data[startBlock:endBlock], dataType)
 		packetWrapper.sendData(conn)
