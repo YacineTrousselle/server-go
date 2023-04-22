@@ -107,7 +107,7 @@ func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 	}
 	dataType := binary.LittleEndian.Uint32(buffer[:4])
 	dataSize := binary.LittleEndian.Uint32(buffer[4:8])
-	data := buffer[8:dataSize]
+	data := buffer[8 : 8+dataSize]
 
 	err := packetWrapper.WriteDataInPacket(data, dataType)
 	if err != nil {
