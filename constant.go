@@ -15,4 +15,6 @@ const (
 
 	PacketReceived
 	RequestFile
+	FileNotFound
+	FileData
 )

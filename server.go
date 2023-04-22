@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 )
 
 type handleConnectionType func(conn net.Conn)
@@ -18,6 +19,12 @@ func handleConnection(conn net.Conn) {
 		case RequestFile:
 			filename := string(data)
 			fmt.Println(filename)
+			file, err := os.ReadFile(filename)
+			if err != nil {
+				packetWrapper.SendDataType(conn, FileNotFound)
+			} else {
+				packetWrapper.SendAllData(file, FileData, conn)
+			}
 		default:
 			packetWrapper.SendDataType(conn, InvalidInputError)
 		}
