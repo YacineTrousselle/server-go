@@ -98,6 +98,9 @@ func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 	buffer := make([]byte, packetWrapper.maxSize)
 	for {
 		packetLength, err := conn.Read(buffer)
+		if packetLength == 0 {
+			continue
+		}
 		if err != nil {
 			return err
 		}
