@@ -96,21 +96,25 @@ func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32)
 
 func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 	buffer := make([]byte, packetWrapper.maxSize)
+	dataReceived := make([]byte, packetWrapper.maxSize)
+	currentLength := uint32(0)
 	for {
 		packetLength, err := conn.Read(buffer)
 		if packetLength == 0 {
 			continue
 		}
+		copy(buffer, dataReceived[currentLength:currentLength+1])
+		currentLength = currentLength + uint32(packetLength)
 		if err != nil {
 			return err
 		}
-		if uint32(packetLength) == packetWrapper.maxSize {
+		if currentLength == packetWrapper.maxSize {
 			break
 		}
 	}
-	dataType := binary.LittleEndian.Uint32(buffer[:4])
-	dataSize := binary.LittleEndian.Uint32(buffer[4:8])
-	data := buffer[8 : 8+dataSize]
+	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
+	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
+	data := dataReceived[8 : 8+dataSize]
 
 	err := packetWrapper.WriteDataInPacket(data, dataType)
 	if err != nil {
