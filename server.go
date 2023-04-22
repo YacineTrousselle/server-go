@@ -51,3 +51,7 @@ func LaunchServer(handleConnectionType handleConnectionType) {
 		go handleConnectionType(conn)
 	}
 }
+
+func LaunchClient() (net.Conn, error) {
+	return net.Dial(TYPE, HOST+":"+PORT)
+}
