@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 	"net"
 )
 
@@ -95,34 +96,61 @@ func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32)
 }
 
 func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
-	buffer := make([]byte, packetWrapper.maxSize)
-	dataReceived := make([]byte, packetWrapper.maxSize)
-	currentLength := uint32(0)
-	for {
-		packetLength, err := conn.Read(buffer)
-		if packetLength == 0 {
-			continue
-		}
-		copy(buffer, dataReceived[currentLength:currentLength+1])
-		currentLength = currentLength + uint32(packetLength)
-		if err != nil {
-			return err
-		}
-		if currentLength == packetWrapper.maxSize {
-			break
-		}
+	dataTypeBuf := make([]byte, 4)
+	if _, err := io.ReadFull(conn, dataTypeBuf); err != nil {
+		return err
 	}
-	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
-	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
-	data := dataReceived[8 : 8+dataSize]
+	dataType := binary.LittleEndian.Uint32(dataTypeBuf)
 
-	err := packetWrapper.WriteDataInPacket(data, dataType)
-	if err != nil {
+	dataSizeBuf := make([]byte, 4)
+	if _, err := io.ReadFull(conn, dataSizeBuf); err != nil {
+		return err
+	}
+	dataSize := binary.LittleEndian.Uint32(dataSizeBuf)
+
+	packet := &Packet{
+		dataType: dataType,
+		dataSize: dataSize,
+		data:     make([]byte, dataSize),
+	}
+
+	if _, err := io.ReadFull(conn, packet.data); err != nil {
 		return err
 	}
 
+	packetWrapper.packet = packet
 	return nil
 }
+
+//func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
+//	buffer := make([]byte, packetWrapper.maxSize)
+//	dataReceived := make([]byte, packetWrapper.maxSize)
+//	currentLength := uint32(0)
+//	for {
+//		packetLength, err := conn.Read(buffer)
+//		if packetLength == 0 {
+//			continue
+//		}
+//		copy(buffer, dataReceived[currentLength:currentLength+1])
+//		currentLength = currentLength + uint32(packetLength)
+//		if err != nil {
+//			return err
+//		}
+//		if currentLength == packetWrapper.maxSize {
+//			break
+//		}
+//	}
+//	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
+//	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
+//	data := dataReceived[8 : 8+dataSize]
+//
+//	err := packetWrapper.WriteDataInPacket(data, dataType)
+//	if err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) []byte {
 	var data []byte
