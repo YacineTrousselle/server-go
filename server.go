@@ -32,7 +32,10 @@ func handleConnection(conn net.Conn) {
 	}
 }
 
-func LaunchServer(handleConnection handleConnectionType) {
+func LaunchServer(handleConnectionType handleConnectionType) {
+	if handleConnectionType == nil {
+		handleConnectionType = handleConnection
+	}
 	listener, err := net.Listen(TYPE, HOST+":"+PORT)
 	if err != nil {
 		log.Fatal(err)
@@ -45,6 +48,6 @@ func LaunchServer(handleConnection handleConnectionType) {
 			log.Print("Connection failed")
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnectionType(conn)
 	}
 }
