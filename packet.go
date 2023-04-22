@@ -112,7 +112,6 @@ func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 			break
 		}
 	}
-	print(string(dataReceived))
 	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
 	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
 	data := dataReceived[8 : 8+dataSize]
@@ -129,9 +128,7 @@ func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) []byte {
 	var data []byte
 	currentSize := uint32(0)
 	for {
-		print("before readData")
 		err := packetWrapper.readData(conn)
-		print("after readData")
 		if err != nil {
 			packetWrapper.SendDataType(conn, UnableToReadPacket)
 			continue
