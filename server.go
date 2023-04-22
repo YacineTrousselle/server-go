@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 )
@@ -19,6 +20,12 @@ func handleConnection(conn net.Conn) {
 		}
 
 		switch packetWrapper.packet.dataType {
+		case RequestFile:
+			filename, err := packetWrapper.ReadAllData(conn)
+			if err != nil {
+				packetWrapper.SendDataType(conn, UnableToReadPacket)
+			}
+			fmt.Println(filename)
 		default:
 			packetWrapper.SendDataType(conn, InvalidInputError)
 		}

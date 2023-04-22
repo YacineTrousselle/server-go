@@ -11,4 +11,7 @@ const (
 	DataType = iota
 	UnableToReadPacket
 	InvalidInputError
+	EndTransfert
+
+	RequestFile
 )

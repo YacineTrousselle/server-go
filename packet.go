@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"errors"
-	"log"
 	"net"
 )
 
@@ -34,8 +33,9 @@ func NewPacketWrapper(maxSize uint32) *PacketWrapper {
 type PacketInterface interface {
 	WriteDataInPacket(data []byte, dataType uint32) error
 	SendData(conn net.Conn) error
+	SendDataType(packetWrapper *PacketWrapper, conn net.Conn, dateType uint32) error
 	ReadData(conn net.Conn) error
-	SendDataType(packetWrapper *PacketWrapper, conn net.Conn, dateType uint32)
+	ReadAllData(conn net.Conn) (string, error)
 }
 
 func (packetWrapper *PacketWrapper) WriteDataInPacket(data []byte, dataType uint32) error {
@@ -64,15 +64,14 @@ func (packetWrapper *PacketWrapper) SendData(conn net.Conn) error {
 	return nil
 }
 
-func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32) {
+func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32) error {
 	err := packetWrapper.WriteDataInPacket([]byte{}, dateType)
 	if err != nil {
-		return
+		return err
 	}
 	err = packetWrapper.SendData(conn)
-	if err != nil {
-		log.Print("Can't send the packet")
-	}
+
+	return err
 }
 
 func (packetWrapper *PacketWrapper) ReadData(conn net.Conn) error {
@@ -96,4 +95,22 @@ func (packetWrapper *PacketWrapper) ReadData(conn net.Conn) error {
 	}
 
 	return nil
+}
+
+func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) (string, error) {
+	var data []byte
+	currentSize := uint32(0)
+	for {
+		err := packetWrapper.ReadData(conn)
+		if err != nil {
+			return "", err
+		}
+		if packetWrapper.packet.dataType == EndTransfert {
+			break
+		}
+		copy(data[currentSize:currentSize+packetWrapper.packet.dataSize], packetWrapper.packet.data[:packetWrapper.packet.dataSize])
+		currentSize = currentSize + packetWrapper.packet.dataSize
+	}
+
+	return string(data), nil
 }
