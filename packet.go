@@ -101,9 +101,9 @@ func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 	for {
 		packetLength, err := conn.Read(buffer)
 		if packetLength == 0 {
-			continue
+			return nil
 		}
-		copy(buffer, dataReceived[currentLength:currentLength+1])
+		copy(buffer, dataReceived[currentLength:currentLength+uint32(packetLength)])
 		currentLength = currentLength + uint32(packetLength)
 		if err != nil {
 			return err
@@ -112,6 +112,7 @@ func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 			break
 		}
 	}
+	print(string(dataReceived))
 	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
 	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
 	data := dataReceived[8 : 8+dataSize]
