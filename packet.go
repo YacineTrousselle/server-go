@@ -32,10 +32,11 @@ func NewPacketWrapper(maxSize uint32) *PacketWrapper {
 
 type PacketInterface interface {
 	WriteDataInPacket(data []byte, dataType uint32) error
-	SendData(conn net.Conn) error
+	sendData(conn net.Conn) error
+	SendAllData(data []byte, dataType uint32, conn net.Conn)
 	SendDataType(packetWrapper *PacketWrapper, conn net.Conn, dateType uint32) error
-	ReadData(conn net.Conn) error
-	ReadAllData(conn net.Conn) (string, error)
+	readData(conn net.Conn) error
+	ReadAllData(conn net.Conn) []byte
 }
 
 func (packetWrapper *PacketWrapper) WriteDataInPacket(data []byte, dataType uint32) error {
@@ -50,7 +51,26 @@ func (packetWrapper *PacketWrapper) WriteDataInPacket(data []byte, dataType uint
 	return nil
 }
 
-func (packetWrapper *PacketWrapper) SendData(conn net.Conn) error {
+func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32, conn net.Conn) {
+	startBlock := uint32(0)
+	endBlock := uint32(0)
+	for {
+		if startBlock == uint32(len(data)) {
+			break
+		}
+		if startBlock+MaxPacketSize-8 > uint32(len(data)) {
+			endBlock = uint32(len(data))
+		} else {
+			endBlock = endBlock + MaxPacketSize - 8
+		}
+		packetWrapper.WriteDataInPacket(data[startBlock:endBlock], dataType)
+		packetWrapper.sendData(conn)
+		startBlock = endBlock
+	}
+	packetWrapper.SendDataType(conn, EndTransfert)
+}
+
+func (packetWrapper *PacketWrapper) sendData(conn net.Conn) error {
 	buffer := make([]byte, packetWrapper.maxSize)
 	binary.LittleEndian.PutUint32(buffer[0:], packetWrapper.packet.dataType)
 	binary.LittleEndian.PutUint32(buffer[4:], packetWrapper.packet.dataSize)
@@ -69,12 +89,12 @@ func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32)
 	if err != nil {
 		return err
 	}
-	err = packetWrapper.SendData(conn)
+	err = packetWrapper.sendData(conn)
 
 	return err
 }
 
-func (packetWrapper *PacketWrapper) ReadData(conn net.Conn) error {
+func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
 	buffer := make([]byte, packetWrapper.maxSize)
 	for {
 		packetLength, err := conn.Read(buffer)
@@ -97,20 +117,22 @@ func (packetWrapper *PacketWrapper) ReadData(conn net.Conn) error {
 	return nil
 }
 
-func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) (string, error) {
+func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) []byte {
 	var data []byte
 	currentSize := uint32(0)
 	for {
-		err := packetWrapper.ReadData(conn)
+		err := packetWrapper.readData(conn)
 		if err != nil {
-			return "", err
+			packetWrapper.SendDataType(conn, UnableToReadPacket)
+			continue
 		}
 		if packetWrapper.packet.dataType == EndTransfert {
 			break
 		}
 		copy(data[currentSize:currentSize+packetWrapper.packet.dataSize], packetWrapper.packet.data[:packetWrapper.packet.dataSize])
 		currentSize = currentSize + packetWrapper.packet.dataSize
+		packetWrapper.SendDataType(conn, PacketReceived)
 	}
 
-	return string(data), nil
+	return data
 }

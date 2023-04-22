@@ -12,19 +12,11 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	packetWrapper := NewPacketWrapper(MaxPacketSize)
 	for {
-		err := packetWrapper.ReadData(conn)
-		if err != nil {
-			log.Print("Unable to read packet")
-			packetWrapper.SendDataType(conn, UnableToReadPacket)
-			continue
-		}
+		data := packetWrapper.ReadAllData(conn)
 
 		switch packetWrapper.packet.dataType {
 		case RequestFile:
-			filename, err := packetWrapper.ReadAllData(conn)
-			if err != nil {
-				packetWrapper.SendDataType(conn, UnableToReadPacket)
-			}
+			filename := string(data)
 			fmt.Println(filename)
 		default:
 			packetWrapper.SendDataType(conn, InvalidInputError)
