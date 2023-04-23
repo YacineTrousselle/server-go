@@ -13,6 +13,10 @@ const (
 	InvalidInputError
 	EndTransfert
 
+	Test
+
+	Ready
+	PacketSent
 	PacketReceived
 	RequestFile
 	FileNotFound
