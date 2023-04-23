@@ -27,8 +27,6 @@ func serverHandleCo(conn net.Conn) {
 		case Test:
 			packetWrapper.SendDataType(Ready)
 			data := packetWrapper.ReadAllData()
-			fmt.Println("server received a test: " + string(data))
-
 		}
 	}
 }

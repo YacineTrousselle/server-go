@@ -2,31 +2,36 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
-	"os"
 )
 
 type handleConnectionType func(conn net.Conn)
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	packetWrapper := NewPacketWrapper(MaxPacketSize)
+	packetWrapper := NewPacketWrapper(MaxPacketSize, conn)
 	for {
-		data := packetWrapper.ReadAllData(conn)
+		err := packetWrapper.ReadDataType()
+		if err == io.EOF {
+			return
+		}
 
 		switch packetWrapper.packet.dataType {
 		case RequestFile:
+			packetWrapper.SendDataType(Ready)
+			data := packetWrapper.ReadAllData()
 			filename := string(data)
 			fmt.Println(filename)
-			file, err := os.ReadFile(filename)
-			if err != nil {
-				packetWrapper.SendDataType(conn, FileNotFound)
-			} else {
-				packetWrapper.SendAllData(file, FileData, conn)
-			}
+			//file, err := os.ReadFile(filename)
+			//if err != nil {
+			//	packetWrapper.SendDataType(FileNotFound)
+			//} else {
+			//	packetWrapper.SendAllData(file, FileData)
+			//}
 		default:
-			packetWrapper.SendDataType(conn, InvalidInputError)
+			packetWrapper.SendDataType(InvalidInputError)
 		}
 	}
 }
