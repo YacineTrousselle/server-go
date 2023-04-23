@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/binary"
 	"errors"
+	"io"
+	"log"
 	"net"
 )
 
@@ -15,9 +17,10 @@ type Packet struct {
 type PacketWrapper struct {
 	packet  *Packet
 	maxSize uint32
+	conn    net.Conn
 }
 
-func NewPacketWrapper(maxSize uint32) *PacketWrapper {
+func NewPacketWrapper(maxSize uint32, conn net.Conn) *PacketWrapper {
 	packet := &Packet{
 		dataType: 0,
 		dataSize: 0,
@@ -26,17 +29,19 @@ func NewPacketWrapper(maxSize uint32) *PacketWrapper {
 	packetWrapper := &PacketWrapper{
 		packet:  packet,
 		maxSize: maxSize,
+		conn:    conn,
 	}
 	return packetWrapper
 }
 
 type PacketInterface interface {
 	WriteDataInPacket(data []byte, dataType uint32) error
-	sendData(conn net.Conn) error
-	SendAllData(data []byte, dataType uint32, conn net.Conn)
-	SendDataType(packetWrapper *PacketWrapper, conn net.Conn, dateType uint32) error
-	readData(conn net.Conn) error
-	ReadAllData(conn net.Conn) []byte
+	sendData() error
+	SendAllData(data []byte, dataType uint32)
+	SendDataType(dataType uint32) error
+	readData() error
+	ReadAllData() []byte
+	ReadDataType() error
 }
 
 func (packetWrapper *PacketWrapper) WriteDataInPacket(data []byte, dataType uint32) error {
@@ -46,37 +51,20 @@ func (packetWrapper *PacketWrapper) WriteDataInPacket(data []byte, dataType uint
 	}
 	packetWrapper.packet.dataSize = lenData
 	packetWrapper.packet.dataType = dataType
-	copy(data, packetWrapper.packet.data[:lenData])
+	if lenData > 0 {
+		copy(packetWrapper.packet.data, data)
+	}
 
 	return nil
 }
 
-func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32, conn net.Conn) {
-	startBlock := uint32(0)
-	endBlock := uint32(0)
-	for {
-		if startBlock == uint32(len(data)) {
-			break
-		}
-		if startBlock+packetWrapper.maxSize-8 > uint32(len(data)) {
-			endBlock = uint32(len(data))
-		} else {
-			endBlock = endBlock + packetWrapper.maxSize - 8
-		}
-		packetWrapper.WriteDataInPacket(data[startBlock:endBlock], dataType)
-		packetWrapper.sendData(conn)
-		startBlock = endBlock
-	}
-	packetWrapper.SendDataType(conn, EndTransfert)
-}
-
-func (packetWrapper *PacketWrapper) sendData(conn net.Conn) error {
+func (packetWrapper *PacketWrapper) sendData() error {
 	buffer := make([]byte, packetWrapper.maxSize)
 	binary.LittleEndian.PutUint32(buffer[0:], packetWrapper.packet.dataType)
 	binary.LittleEndian.PutUint32(buffer[4:], packetWrapper.packet.dataSize)
 	copy(buffer[8:], packetWrapper.packet.data)
 
-	_, err := conn.Write(buffer)
+	_, err := packetWrapper.conn.Write(buffer)
 	if err != nil {
 		return err
 	}
@@ -84,62 +72,100 @@ func (packetWrapper *PacketWrapper) sendData(conn net.Conn) error {
 	return nil
 }
 
-func (packetWrapper *PacketWrapper) SendDataType(conn net.Conn, dateType uint32) error {
-	err := packetWrapper.WriteDataInPacket([]byte{}, dateType)
-	if err != nil {
-		return err
+func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
+	packetWrapper.SendDataType(dataType)
+	packetWrapper.ReadDataType()
+	if packetWrapper.packet.dataType == InvalidInputError {
+		log.Fatalln("InvalidInputError")
 	}
-	err = packetWrapper.sendData(conn)
 
-	return err
-}
-
-func (packetWrapper *PacketWrapper) readData(conn net.Conn) error {
-	buffer := make([]byte, packetWrapper.maxSize)
-	dataReceived := make([]byte, packetWrapper.maxSize)
-	currentLength := uint32(0)
+	startPos := uint32(0)
+	endPos := uint32(0)
+	lenData := uint32(len(data))
+	var err error = nil
 	for {
-		packetLength, err := conn.Read(buffer)
-		if packetLength == 0 {
-			return nil
-		}
-		copy(buffer, dataReceived[currentLength:currentLength+uint32(packetLength)])
-		currentLength = currentLength + uint32(packetLength)
-		if err != nil {
-			return err
-		}
-		if currentLength == packetWrapper.maxSize {
+		if startPos == lenData {
 			break
 		}
-	}
-	dataType := binary.LittleEndian.Uint32(dataReceived[:4])
-	dataSize := binary.LittleEndian.Uint32(dataReceived[4:8])
-	data := dataReceived[8 : 8+dataSize]
-
-	err := packetWrapper.WriteDataInPacket(data, dataType)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (packetWrapper *PacketWrapper) ReadAllData(conn net.Conn) []byte {
-	var data []byte
-	currentSize := uint32(0)
-	for {
-		err := packetWrapper.readData(conn)
+		if err == nil {
+			endPos = startPos + packetWrapper.maxSize - 8
+			if endPos > lenData {
+				endPos = lenData
+			}
+		}
+		packetWrapper.WriteDataInPacket(data[startPos:endPos], PacketSent)
+		err = packetWrapper.sendData()
 		if err != nil {
-			packetWrapper.SendDataType(conn, UnableToReadPacket)
+			log.Println("sendData error", err)
 			continue
 		}
-		if packetWrapper.packet.dataType == EndTransfert {
-			break
+
+		packetWrapper.ReadDataType()
+		if packetWrapper.packet.dataType == UnableToReadPacket {
+			log.Println("UnableToReadPacket")
+			err = errors.New("UnableToReadPacket")
+			continue
 		}
-		copy(data[8+currentSize:8+currentSize+packetWrapper.packet.dataSize], packetWrapper.packet.data[8:packetWrapper.packet.dataSize])
-		currentSize = currentSize + packetWrapper.packet.dataSize
-		packetWrapper.SendDataType(conn, PacketReceived)
+
+		startPos = endPos
+	}
+	packetWrapper.SendDataType(EndTransfert)
+	packetWrapper.ReadDataType()
+}
+
+func (packetWrapper *PacketWrapper) SendDataType(dataType uint32) error {
+	err := packetWrapper.WriteDataInPacket([]byte{}, dataType)
+	if err != nil {
+		return err
 	}
 
-	return data
+	return packetWrapper.sendData()
+}
+
+func (packetWrapper *PacketWrapper) readData() error {
+	buffer := make([]byte, packetWrapper.maxSize)
+	_, err := io.ReadFull(packetWrapper.conn, buffer)
+	if err != nil {
+		return err
+	}
+
+	dataType := binary.LittleEndian.Uint32(buffer[:4])
+	dataSize := binary.LittleEndian.Uint32(buffer[4:8])
+	data := buffer[8 : 8+dataSize]
+
+	packetWrapper.WriteDataInPacket(data, dataType)
+
+	return nil
+}
+
+func (packetWrapper *PacketWrapper) ReadAllData() []byte {
+	var data []byte
+	packetWrapper.SendDataType(Ready)
+
+	for {
+		err := packetWrapper.readData()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			packetWrapper.SendDataType(UnableToReadPacket)
+			continue
+		}
+		if packetWrapper.packet.dataSize > 0 {
+			data = append(data, packetWrapper.packet.data[:packetWrapper.packet.dataSize]...)
+		}
+		if packetWrapper.packet.dataType == EndTransfert {
+			packetWrapper.SendDataType(PacketReceived)
+			return data
+		}
+		packetWrapper.SendDataType(PacketReceived)
+	}
+}
+
+func (packetWrapper *PacketWrapper) ReadDataType() error {
+	err := packetWrapper.readData()
+	if err != nil {
+		return err
+	}
+	return nil
 }

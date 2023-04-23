@@ -1,32 +1,34 @@
 package server
 
 import (
-	"fmt"
+	"io"
 	"log"
 	"net"
-	"os"
 )
 
 type handleConnectionType func(conn net.Conn)
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	packetWrapper := NewPacketWrapper(MaxPacketSize)
+	packetWrapper := NewPacketWrapper(MaxPacketSize, conn)
 	for {
-		data := packetWrapper.ReadAllData(conn)
+		err := packetWrapper.ReadDataType()
+		if err == io.EOF {
+			return
+		}
 
 		switch packetWrapper.packet.dataType {
 		case RequestFile:
-			filename := string(data)
-			fmt.Println(filename)
-			file, err := os.ReadFile(filename)
-			if err != nil {
-				packetWrapper.SendDataType(conn, FileNotFound)
-			} else {
-				packetWrapper.SendAllData(file, FileData, conn)
-			}
+			data := packetWrapper.ReadAllData()
+			log.Println("data read:", string(data))
+			//file, err := os.ReadFile(filename)
+			//if err != nil {
+			//	packetWrapper.SendDataType(FileNotFound)
+			//} else {
+			//	packetWrapper.SendAllData(file, FileData)
+			//}
 		default:
-			packetWrapper.SendDataType(conn, InvalidInputError)
+			packetWrapper.SendDataType(InvalidInputError)
 		}
 	}
 }
@@ -49,8 +51,4 @@ func LaunchServer(handleConnectionType handleConnectionType) {
 		}
 		go handleConnectionType(conn)
 	}
-}
-
-func LaunchClient() (net.Conn, error) {
-	return net.Dial(TYPE, HOST+":"+PORT)
 }
