@@ -74,7 +74,11 @@ func (packetWrapper *PacketWrapper) sendData() error {
 
 func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
 	packetWrapper.SendDataType(dataType)
-	packetWrapper.readData()
+	packetWrapper.ReadDataType()
+	if packetWrapper.packet.dataType == InvalidInputError {
+		log.Fatalln("InvalidInputError")
+	}
+
 	startPos := uint32(0)
 	endPos := uint32(0)
 	lenData := uint32(len(data))
@@ -92,13 +96,13 @@ func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
 		packetWrapper.WriteDataInPacket(data[startPos:endPos], PacketSent)
 		err = packetWrapper.sendData()
 		if err != nil {
-			log.Println("error in send: ", err)
+			log.Println("sendData error", err)
 			continue
 		}
-		log.Println("A paquet has been sent", packetWrapper.packet.dataType)
-		packetWrapper.readData()
+
+		packetWrapper.ReadDataType()
 		if packetWrapper.packet.dataType == UnableToReadPacket {
-			log.Print("UnableToReadPacket")
+			log.Println("UnableToReadPacket")
 			err = errors.New("UnableToReadPacket")
 			continue
 		}
@@ -106,7 +110,7 @@ func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
 		startPos = endPos
 	}
 	packetWrapper.SendDataType(EndTransfert)
-	packetWrapper.readData()
+	packetWrapper.ReadDataType()
 }
 
 func (packetWrapper *PacketWrapper) SendDataType(dataType uint32) error {
@@ -136,10 +140,10 @@ func (packetWrapper *PacketWrapper) readData() error {
 
 func (packetWrapper *PacketWrapper) ReadAllData() []byte {
 	var data []byte
+	packetWrapper.SendDataType(Ready)
 
 	for {
 		err := packetWrapper.readData()
-		log.Println("A packet has been read", packetWrapper.packet.dataType)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -147,13 +151,14 @@ func (packetWrapper *PacketWrapper) ReadAllData() []byte {
 			packetWrapper.SendDataType(UnableToReadPacket)
 			continue
 		}
-		packetWrapper.SendDataType(PacketReceived)
-		if packetWrapper.packet.dataType == EndTransfert {
-			return data
-		}
 		if packetWrapper.packet.dataSize > 0 {
 			data = append(data, packetWrapper.packet.data[:packetWrapper.packet.dataSize]...)
 		}
+		if packetWrapper.packet.dataType == EndTransfert {
+			packetWrapper.SendDataType(PacketReceived)
+			return data
+		}
+		packetWrapper.SendDataType(PacketReceived)
 	}
 }
 

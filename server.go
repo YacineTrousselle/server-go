@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net"
@@ -20,10 +19,8 @@ func handleConnection(conn net.Conn) {
 
 		switch packetWrapper.packet.dataType {
 		case RequestFile:
-			packetWrapper.SendDataType(Ready)
 			data := packetWrapper.ReadAllData()
-			filename := string(data)
-			fmt.Println(filename)
+			log.Println("data read:", string(data))
 			//file, err := os.ReadFile(filename)
 			//if err != nil {
 			//	packetWrapper.SendDataType(FileNotFound)
@@ -54,8 +51,4 @@ func LaunchServer(handleConnectionType handleConnectionType) {
 		}
 		go handleConnectionType(conn)
 	}
-}
-
-func LaunchClient() (net.Conn, error) {
-	return net.Dial(TYPE, HOST+":"+PORT)
 }
