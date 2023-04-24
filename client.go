@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"log"
 	"net"
 )
@@ -24,10 +25,16 @@ func LaunchClient() (Client, error) {
 }
 
 func (client Client) RequestFile(filename string) (file []byte, err error) {
-	data := []byte(filename)
-	client.packetWrapper.SendAllData(data, RequestFile)
+	dataFilename := []byte(filename)
+	client.packetWrapper.SendAllData(dataFilename, RequestFile)
 
-	return nil, nil
+	client.packetWrapper.ReadDataType()
+	if client.packetWrapper.packet.dataType == FileNotFound {
+		return nil, errors.New("FileNotFound")
+	}
+	data := client.packetWrapper.ReadAllData()
+
+	return data, nil
 }
 
 func (client Client) Close() {

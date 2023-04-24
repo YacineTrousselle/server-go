@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 )
 
 type handleConnectionType func(conn net.Conn)
@@ -22,15 +23,14 @@ func handleConnection(conn net.Conn) {
 		switch packetWrapper.packet.dataType {
 		case RequestFile:
 			data := packetWrapper.ReadAllData()
-			log.Println("data read:", string(data))
-			//file, err := os.ReadFile(filename)
-			//if err != nil {
-			//	packetWrapper.SendDataType(FileNotFound)
-			//} else {
-			//	packetWrapper.SendAllData(file, FileData)
-			//}
+			filename := string(data)
+			file, err := os.ReadFile(filename)
+			if err != nil {
+				packetWrapper.SendDataType(FileNotFound)
+			} else {
+				packetWrapper.SendAllData(file, FileData)
+			}
 		case EndConnection:
-			log.Println("EndConnection")
 			return
 		default:
 			packetWrapper.SendDataType(InvalidInputError)

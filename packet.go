@@ -74,10 +74,6 @@ func (packetWrapper *PacketWrapper) sendData() error {
 
 func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
 	packetWrapper.SendDataType(dataType)
-	packetWrapper.ReadDataType()
-	if packetWrapper.packet.dataType == InvalidInputError {
-		log.Fatalln("InvalidInputError")
-	}
 
 	startPos := uint32(0)
 	endPos := uint32(0)
@@ -87,30 +83,21 @@ func (packetWrapper *PacketWrapper) SendAllData(data []byte, dataType uint32) {
 		if startPos == lenData {
 			break
 		}
-		if err == nil {
-			endPos = startPos + packetWrapper.maxSize - 8
-			if endPos > lenData {
-				endPos = lenData
-			}
-		}
-		packetWrapper.WriteDataInPacket(data[startPos:endPos], PacketSent)
-		err = packetWrapper.sendData()
-		if err != nil {
-			log.Println("sendData error", err)
-			continue
+		endPos = startPos + packetWrapper.maxSize - 8
+		if endPos > lenData {
+			endPos = lenData
 		}
 
-		packetWrapper.ReadDataType()
-		if packetWrapper.packet.dataType == UnableToReadPacket {
-			log.Println("UnableToReadPacket")
-			err = errors.New("UnableToReadPacket")
-			continue
+		packetWrapper.WriteDataInPacket(data[startPos:endPos], PacketSent)
+		err = packetWrapper.sendData()
+		for err != nil {
+			log.Println("sendData error", err)
+			err = packetWrapper.sendData()
 		}
 
 		startPos = endPos
 	}
 	packetWrapper.SendDataType(EndTransfert)
-	packetWrapper.ReadDataType()
 }
 
 func (packetWrapper *PacketWrapper) SendDataType(dataType uint32) error {
@@ -128,7 +115,6 @@ func (packetWrapper *PacketWrapper) readData() error {
 	if err != nil {
 		return err
 	}
-	packetWrapper.SendDataType(PacketReceived)
 
 	dataType := binary.LittleEndian.Uint32(buffer[:4])
 	dataSize := binary.LittleEndian.Uint32(buffer[4:8])
@@ -140,7 +126,6 @@ func (packetWrapper *PacketWrapper) readData() error {
 
 func (packetWrapper *PacketWrapper) ReadAllData() []byte {
 	var data []byte
-	packetWrapper.SendDataType(Ready)
 
 	for {
 		err := packetWrapper.readData()
@@ -148,7 +133,6 @@ func (packetWrapper *PacketWrapper) ReadAllData() []byte {
 			if err == io.EOF {
 				return nil
 			}
-			packetWrapper.SendDataType(UnableToReadPacket)
 			continue
 		}
 		if packetWrapper.packet.dataSize > 0 {

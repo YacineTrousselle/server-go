@@ -14,7 +14,6 @@ const (
 	EndTransfert
 	EndConnection
 
-	Ready
 	PacketSent
 	PacketReceived
 

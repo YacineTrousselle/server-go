@@ -18,7 +18,7 @@ func clientStart() {
 	client, _ := LaunchClient()
 	defer client.Close()
 
-	s := "ching chong"
-	log.Println("client:", s)
-	client.RequestFile(s)
+	s := "go.mod"
+	data, _ := client.RequestFile(s)
+	log.Println("file:", string(data))
 }
