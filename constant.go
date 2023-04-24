@@ -12,12 +12,12 @@ const (
 	UnableToReadPacket
 	InvalidInputError
 	EndTransfert
-
-	Test
+	EndConnection
 
 	Ready
 	PacketSent
 	PacketReceived
+
 	RequestFile
 	FileNotFound
 	FileData

@@ -128,11 +128,11 @@ func (packetWrapper *PacketWrapper) readData() error {
 	if err != nil {
 		return err
 	}
+	packetWrapper.SendDataType(PacketReceived)
 
 	dataType := binary.LittleEndian.Uint32(buffer[:4])
 	dataSize := binary.LittleEndian.Uint32(buffer[4:8])
 	data := buffer[8 : 8+dataSize]
-
 	packetWrapper.WriteDataInPacket(data, dataType)
 
 	return nil
@@ -155,10 +155,8 @@ func (packetWrapper *PacketWrapper) ReadAllData() []byte {
 			data = append(data, packetWrapper.packet.data[:packetWrapper.packet.dataSize]...)
 		}
 		if packetWrapper.packet.dataType == EndTransfert {
-			packetWrapper.SendDataType(PacketReceived)
 			return data
 		}
-		packetWrapper.SendDataType(PacketReceived)
 	}
 }
 

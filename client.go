@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net"
 )
 
@@ -27,4 +28,10 @@ func (client Client) RequestFile(filename string) (file []byte, err error) {
 	client.packetWrapper.SendAllData(data, RequestFile)
 
 	return nil, nil
+}
+
+func (client Client) Close() {
+	defer log.Println("I'm die. Thank you forever.")
+	defer client.packetWrapper.conn.Close()
+	client.packetWrapper.SendDataType(EndConnection)
 }

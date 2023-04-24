@@ -14,10 +14,10 @@ func Main() {
 }
 
 func clientStart() {
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	client, _ := LaunchClient()
-	defer client.packetWrapper.conn.Close()
-	defer log.Println("I'm die. Thank you forever.")
+	defer client.Close()
+
 	s := "ching chong"
 	log.Println("client:", s)
 	client.RequestFile(s)
