@@ -20,5 +20,5 @@ func clientStart() {
 
 	s := "go.mod"
 	data, _ := client.RequestFile(s)
-	log.Println("file:", string(data))
+	log.Println("client:", string(data))
 }
